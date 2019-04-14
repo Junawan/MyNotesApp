@@ -1,7 +1,13 @@
 package com.odading.mynotesapp;
 
+import android.content.Context;
 import android.content.Intent;
+import android.database.ContentObserver;
+import android.database.Cursor;
+import android.database.DataSetObserver;
 import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -19,6 +25,8 @@ import db.NoteHelper;
 import entity.Notes;
 
 import static com.odading.mynotesapp.NoteAddUpdateActivity.REQUEST_UPDATE;
+import static com.odading.mynotesapp.helper.MappingHelper.mapCursorToArrayList;
+import static db.DatabaseContract.NoteColumns.CONTENT_URI;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, LoadNotesCallback {
     private RecyclerView rvNotes;
@@ -26,7 +34,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private FloatingActionButton fabAdd;
     private static final String EXTRA_STATE = "EXTRA_STATE";
     private NoteAdapter adapter;
-    private NoteHelper noteHelper;
+
+
+    private static HandlerThread handlerThread;
+    private DataObserver myObserver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,10 +50,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rvNotes = findViewById(R.id.rv_notes);
         rvNotes.setLayoutManager(new LinearLayoutManager(this));
         rvNotes.setHasFixedSize(true);
-        noteHelper = NoteHelper.getInstance(getApplicationContext());
-        noteHelper.open();
 
         progressBar = findViewById(R.id.progresbar);
+        fabAdd = findViewById(R.id.fab_add);
+        fabAdd.setOnClickListener(this);
+
+        handlerThread = new HandlerThread("DataObserver");
+        handlerThread.start();
+        Handler handler = new Handler(handlerThread.getLooper());
+        myObserver = new DataObserver(handler, this);
+
+        getContentResolver().registerContentObserver(CONTENT_URI, true, myObserver);
+
         fabAdd = findViewById(R.id.fab_add);
         fabAdd.setOnClickListener(this);
 
@@ -50,7 +69,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         rvNotes.setAdapter(adapter);
 
         if (savedInstanceState == null) {
-            new LoadNotesAsync(noteHelper, this).execute();
+            new LoadNotesAsync(this, this).execute();
         } else {
             ArrayList<Notes> list = savedInstanceState.getParcelableArrayList(EXTRA_STATE);
             if (list != null) {
@@ -84,17 +103,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @Override
-    public void postExecute(ArrayList<Notes> notes) {
+    public void postExecute(Cursor notes) {
         progressBar.setVisibility(View.INVISIBLE);
-        adapter.setListNotes(notes);
+        ArrayList<Notes> listNotes = mapCursorToArrayList(notes);
+        if (listNotes.size() > 0) {
+            adapter.setListNotes(listNotes);
+        } else {
+            adapter.setListNotes(new ArrayList<Notes>());
+            showSnackbarMessage("Tidak ada data saat ini");
+        }
     }
 
-    private static class LoadNotesAsync extends AsyncTask<Void, Void, ArrayList<Notes>> {
-        private final WeakReference<NoteHelper> weakNoteHelper;
+    private static class LoadNotesAsync extends AsyncTask<Void, Void, Cursor> {
+        private final WeakReference<Context> weakContext;
         private final WeakReference<LoadNotesCallback> weakCallback;
 
-        private LoadNotesAsync(NoteHelper noteHelper, LoadNotesCallback callback) {
-            weakNoteHelper = new WeakReference<>(noteHelper);
+        private LoadNotesAsync(Context context, LoadNotesCallback callback) {
+            weakContext = new WeakReference<>(context);
             weakCallback = new WeakReference<>(callback);
         }
 
@@ -105,12 +130,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         @Override
-        protected ArrayList<Notes> doInBackground(Void... voids) {
-            return weakNoteHelper.get().getAllNotes();
+        protected Cursor doInBackground(Void... voids) {
+            Context context = weakContext.get();
+            return context.getContentResolver().query(CONTENT_URI, null, null, null, null);
         }
 
         @Override
-        protected void onPostExecute(ArrayList<Notes> notes) {
+        protected void onPostExecute(Cursor notes) {
             super.onPostExecute(notes);
             weakCallback.get().postExecute(notes);
         }
@@ -150,10 +176,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        noteHelper.close();
     }
 
     private void showSnackbarMessage(String message) {
         Snackbar.make(rvNotes, message, Snackbar.LENGTH_SHORT).show();
+    }
+
+    public static class DataObserver extends ContentObserver {
+        final Context context;
+
+        public DataObserver(Handler handler, Context context) {
+            super(handler);
+            this.context = context;
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            super.onChange(selfChange);
+            new LoadNotesAsync(context, (LoadNotesCallback) context).execute();
+        }
     }
 }

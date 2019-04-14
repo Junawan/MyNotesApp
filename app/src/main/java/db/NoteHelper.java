@@ -14,11 +14,11 @@ import entity.Notes;
 import static android.provider.BaseColumns._ID;
 import static db.DatabaseContract.NoteColumns.DATE;
 import static db.DatabaseContract.NoteColumns.DESCRIPTION;
+import static db.DatabaseContract.NoteColumns.TABLE_NAME;
 import static db.DatabaseContract.NoteColumns.TITLE;
-import static db.DatabaseContract.TABLE_NOTE;
 
 public class NoteHelper {
-    private static final String DATABASE_TABLE = TABLE_NOTE;
+    private static final String DATABASE_TABLE = TABLE_NAME;
     private static DatabaseHelper databaseHelper;
     private static NoteHelper INSTANCE;
     private static SQLiteDatabase database;
@@ -49,7 +49,7 @@ public class NoteHelper {
             database.close();
     }
 
-    public ArrayList<Notes> getAllNotes() {
+    public ArrayList<Notes> query() {
         ArrayList<Notes> arrayList = new ArrayList<>();
         Cursor cursor = database.query(DATABASE_TABLE, null, null, null, null, null,
                 _ID + " ASC", null);
@@ -71,15 +71,15 @@ public class NoteHelper {
         return arrayList;
     }
 
-    public long insertNote(Notes notes) {
-        ContentValues args = new ContentValues();
-        args.put(TITLE, notes.getTitle());
-        args.put(DESCRIPTION, notes.getDescription());
-        args.put(DATE, notes.getDate());
-        return database.insert(DATABASE_TABLE, null, args);
+    public long insert(Notes notes) {
+        ContentValues initislValues = new ContentValues();
+        initislValues.put(TITLE, notes.getTitle());
+        initislValues.put(DESCRIPTION, notes.getDescription());
+        initislValues.put(DATE, notes.getDate());
+        return database.insert(DATABASE_TABLE, null, initislValues);
     }
 
-    public int updateNote(Notes notes) {
+    public int update(Notes notes) {
         ContentValues args = new ContentValues();
         args.put(TITLE, notes.getTitle());
         args.put(DESCRIPTION, notes.getDescription());
@@ -88,6 +88,37 @@ public class NoteHelper {
     }
 
     public int deleteNote(int id) {
-        return database.delete(TABLE_NOTE, _ID + " = '" + id + "'", null);
+        return database.delete(TABLE_NAME, _ID + " = '" + id + "'", null);
+    }
+
+    public Cursor queryByIdProvider(String id) {
+        return database.query(DATABASE_TABLE, null
+                , _ID + " = ?"
+                , new String[]{id}
+                , null
+                , null
+                , null
+                , null);
+    }
+
+    public Cursor queryProvider() {
+        return database.query(DATABASE_TABLE, null
+                , null
+                , null
+                , null
+                , null
+        , _ID + " ASC");
+    }
+
+    public long insertProvider(ContentValues values) {
+        return database.insert(DATABASE_TABLE, null, values);
+    }
+
+    public int updateProvider(String id, ContentValues values) {
+        return database.update(DATABASE_TABLE, values, _ID + " = ?", new String[]{id});
+    }
+
+    public int deleteProvider(String id) {
+        return database.delete(DATABASE_TABLE, _ID + " = ?", new String[]{id});
     }
 }

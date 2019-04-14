@@ -2,6 +2,7 @@ package com.odading.mynotesapp;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
@@ -13,6 +14,8 @@ import android.widget.TextView;
 import java.util.ArrayList;
 
 import entity.Notes;
+
+import static db.DatabaseContract.NoteColumns.CONTENT_URI;
 
 public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder> {
     private ArrayList<Notes> listNotes = new ArrayList<>();
@@ -27,11 +30,8 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     }
 
     public void setListNotes(ArrayList<Notes> listNotes) {
-        if (listNotes.size() > 0) {
-            this.listNotes.clear();
-        }
+        this.listNotes.clear();
         this.listNotes.addAll(listNotes);
-
         notifyDataSetChanged();
     }
 
@@ -61,13 +61,17 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull NoteViewHolder holder, int position) {
-        holder.tvTitle.setText(listNotes.get(position).getTitle());
-        holder.tvDescription.setText(listNotes.get(position).getDescription());
-        holder.tvDate.setText(listNotes.get(position).getDate());
+        holder.tvTitle.setText(getListNotes().get(position).getTitle());
+        holder.tvDescription.setText(getListNotes().get(position).getDescription());
+        holder.tvDate.setText(getListNotes().get(position).getDate());
         holder.cvNote.setOnClickListener(new CustomOnItemClickListener(position, new CustomOnItemClickListener.OnItemClickCallback() {
             @Override
             public void onItemClicked(View view, int position) {
                 Intent intent = new Intent(activity, NoteAddUpdateActivity.class);
+
+                Uri uri = Uri.parse(CONTENT_URI + "/" + getListNotes().get(position).getId());
+                intent.setData(uri);
+
                 intent.putExtra(NoteAddUpdateActivity.EXTRA_POSITION, position);
                 intent.putExtra(NoteAddUpdateActivity.EXTRA_NOTE, listNotes.get(position));
 

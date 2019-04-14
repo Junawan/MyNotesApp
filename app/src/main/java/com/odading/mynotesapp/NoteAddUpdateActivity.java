@@ -1,7 +1,10 @@
 package com.odading.mynotesapp;
 
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -20,6 +23,11 @@ import java.util.Locale;
 
 import db.NoteHelper;
 import entity.Notes;
+
+import static db.DatabaseContract.NoteColumns.CONTENT_URI;
+import static db.DatabaseContract.NoteColumns.DATE;
+import static db.DatabaseContract.NoteColumns.DESCRIPTION;
+import static db.DatabaseContract.NoteColumns.TITLE;
 
 public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnClickListener {
     private EditText edtTitle, edtDescription;
@@ -41,7 +49,6 @@ public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnC
     private Notes notes;
     private int position;
 
-    private NoteHelper noteHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,14 +60,21 @@ public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnC
         btnSubmit = findViewById(R.id.btn_submit);
         btnSubmit.setOnClickListener(this);
 
-        noteHelper = NoteHelper.getInstance(getApplicationContext());
-
         notes = getIntent().getParcelableExtra(EXTRA_NOTE);
         if (notes != null) {
             position = getIntent().getIntExtra(EXTRA_POSITION, 0);
             isEdit = true;
         } else {
             notes = new Notes();
+        }
+
+        Uri uri = getIntent().getData();
+        if (uri != null) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst()) notes = new Notes(cursor);
+                cursor.close();
+            }
         }
 
         String actionBarTitle;
@@ -92,36 +106,35 @@ public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnC
             String title = edtTitle.getText().toString().trim();
             String description = edtDescription.getText().toString().trim();
 
-            if (TextUtils.isEmpty(title)) {
-                edtTitle.setError("Field can not be blank");
-                return;
-            }
+            boolean isEmpty = false;
 
-            notes.setTitle(title);
-            notes.setDescription(description);
+            if (TextUtils.isEmpty(title)) {
+                isEmpty = true;
+                edtTitle.setError("Field can not be blank");
+            }
 
             Intent intent = new Intent();
             intent.putExtra(EXTRA_NOTE, notes);
             intent.putExtra(EXTRA_POSITION, position);
 
-            if (isEdit) {
-                long result = noteHelper.updateNote(notes);
-                if (result > 0) {
-                    setResult(RESULT_UPDATE, intent);
-                    finish();
-                } else {
-                    Toast.makeText(NoteAddUpdateActivity.this, "Gagal mengupdate data", Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                notes.setDate(getCurrentDate());
-                long result = noteHelper.insertNote(notes);
+            notes.setTitle(title);
+            notes.setDescription(description);
 
-                if (result > 0) {
-                    notes.setId((int) result);
-                    setResult(RESULT_ADD, intent);
-                    finish();
-                } else {
-                    Toast.makeText(NoteAddUpdateActivity.this, "Gagal menambah data", Toast.LENGTH_SHORT).show();
+            if (!isEmpty) {
+                ContentValues values = new ContentValues();
+                values.put(TITLE, title);
+                values.put(DESCRIPTION, description);
+
+            if (isEdit) {
+                getContentResolver().update(getIntent().getData(), values, null, null);
+                Toast.makeText(NoteAddUpdateActivity.this, "Satu item berhasil diedit", Toast.LENGTH_SHORT).show();
+                finish();
+            } else {
+                values.put(DATE, getCurrentDate());
+                notes.setDate(getCurrentDate());
+                Toast.makeText(NoteAddUpdateActivity.this, "Satu item berhasil disimpan", Toast.LENGTH_SHORT).show();
+                getContentResolver().insert(CONTENT_URI, values);
+                finish();
                 }
             }
         }
@@ -137,6 +150,7 @@ public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnC
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        int ALERT_DIALOG_DELETE = 20;
         switch (item.getItemId()) {
             case R.id.action_delete:
                 showAlertDialog(ALERT_DIALOG_DELETE);
@@ -176,15 +190,12 @@ public class NoteAddUpdateActivity extends AppCompatActivity implements View.OnC
                         if (isDialogClose) {
                             finish();
                         } else {
-                            long result = noteHelper.deleteNote(notes.getId());
-                            if (result > 0) {
                                 Intent intent = new Intent();
                                 intent.putExtra(EXTRA_POSITION, position);
-                                setResult(RESULT_DELETE, intent);
+                            Toast.makeText(NoteAddUpdateActivity.this, "Satu item berhasil dihapus", Toast.LENGTH_SHORT).show();
+                            getContentResolver().delete(getIntent().getData(), null, null);
                                 finish();
-                            } else {
-                                Toast.makeText(NoteAddUpdateActivity.this, "Gagal menghapus data", Toast.LENGTH_SHORT).show();
-                            }
+
                         }
                     }
                 })

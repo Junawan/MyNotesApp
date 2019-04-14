@@ -1,5 +1,7 @@
 package com.odading.mynotesapp;
 
+import android.database.Cursor;
+
 import java.util.ArrayList;
 
 import entity.Notes;
@@ -7,5 +9,5 @@ import entity.Notes;
 public interface LoadNotesCallback {
     void preExecute();
 
-    void postExecute(ArrayList<Notes> notes);
+    void postExecute(Cursor notes);
 }

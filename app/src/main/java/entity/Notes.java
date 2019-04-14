@@ -1,7 +1,14 @@
 package entity;
 
+import android.database.Cursor;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import db.DatabaseContract;
+
+import static android.provider.MediaStore.Audio.Playlists.Members._ID;
+import static db.DatabaseContract.getColumnInt;
+import static db.DatabaseContract.getColumnString;
 
 public class Notes implements Parcelable {
     private int id;
@@ -58,11 +65,25 @@ public class Notes implements Parcelable {
     public Notes() {
     }
 
-    protected Notes(Parcel in) {
+    public Notes(int id, String title, String description, String date) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.date = date;
+    }
+
+    private Notes(Parcel in) {
         this.title = in.readString();
         this.id = in.readInt();
         this.description = in.readString();
         this.date = in.readString();
+    }
+
+    public Notes(Cursor cursor) {
+        this.id = getColumnInt(cursor, _ID);
+        this.title = getColumnString(cursor, DatabaseContract.NoteColumns.TITLE);
+        this.description = getColumnString(cursor, DatabaseContract.NoteColumns.DESCRIPTION);
+        this.date = getColumnString(cursor, DatabaseContract.NoteColumns.DATE);
     }
 
     public static final Parcelable.Creator<Notes> CREATOR = new Parcelable.Creator<Notes>() {
